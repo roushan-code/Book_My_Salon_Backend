@@ -12,7 +12,9 @@ import { getPaginationOptions, formatPaginationResponse } from "../utils/dbUtils
 export const createOrUpdateShopDetails = catchAsyncErrors(async (req, res, next) => {
     const barber_id = req.user._id;
     const file = req.file;
+
     const {
+        shop_name,   // ✅ ADDED
         shop_address,
         phone,
         opening_hours,
@@ -24,18 +26,16 @@ export const createOrUpdateShopDetails = catchAsyncErrors(async (req, res, next)
         slot_interval,
     } = req.body;
 
-    // Validate required fields
-    if (!shop_address || !phone) {
-        return next(new ErrorHandler("Shop address and phone are required", 400));
+    // ✅ Updated validation
+    if (!shop_name || !shop_address || !phone) {
+        return next(new ErrorHandler("Shop name, address and phone are required", 400));
     }
 
-    // Validate services using utility function
     const serviceValidation = validateServices(services);
     if (!serviceValidation.valid) {
         return next(new ErrorHandler(serviceValidation.message, 400));
     }
 
-    // Fetch barber and shop details in parallel
     const [barberDetails, existingShopDetails] = await Promise.all([
         User.findById(barber_id),
         ShopDetails.findOne({ barber_id }).populate('barber_id', 'name email phone profileUrl')
@@ -45,28 +45,27 @@ export const createOrUpdateShopDetails = catchAsyncErrors(async (req, res, next)
         return next(new ErrorHandler("Barber not found", 404));
     }
 
-    // Update barber phone if different
     if (barberDetails.phone !== phone) {
         barberDetails.phone = phone;
         await barberDetails.save();
     }
-    
-    // Handle profile image upload
+
     const profileUrl = await handleProfileImageUpload(
-        file, 
+        file,
         existingShopDetails?.profileUrl,
         uploadFilesToCloudinary,
         deleteFilesFromCloudinary
     );
 
-    // Update barber profile URL
     if (profileUrl.url && barberDetails.profileUrl !== profileUrl.url) {
         barberDetails.profileUrl = profileUrl.url;
         await barberDetails.save();
     }
-    
+
+    // ✅ Added shop_name here
     const shopData = {
         barber_id,
+        shop_name,
         shop_address,
         phone,
         opening_hours: opening_hours || { start: "09:00", end: "20:00" },
@@ -80,18 +79,19 @@ export const createOrUpdateShopDetails = catchAsyncErrors(async (req, res, next)
     };
 
     let shopDetails;
+
     if (existingShopDetails) {
-        // Update existing shop details
         Object.assign(existingShopDetails, shopData);
         shopDetails = await existingShopDetails.save();
     } else {
-        // Create new shop details
         shopDetails = await ShopDetails.create(shopData);
     }
 
     res.status(200).json({
         success: true,
-        message: existingShopDetails ? "Shop details updated successfully" : "Shop details created successfully",
+        message: existingShopDetails
+            ? "Shop details updated successfully"
+            : "Shop details created successfully",
         data: shopDetails
     });
 });
@@ -266,8 +266,8 @@ export const searchShops = catchAsyncErrors(async (req, res, next) => {
         return next(new ErrorHandler("Search query is required", 400));
     }
 
-    // Escape regex characters to avoid unintended patterns
-    const escapedQuery = query.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    // 🔥 Split into keywords
+    const keywords = query.trim().split(/\s+/);
 
     const shops = await ShopDetails.aggregate([
         {
@@ -275,32 +275,50 @@ export const searchShops = catchAsyncErrors(async (req, res, next) => {
                 from: "users",
                 localField: "barber_id",
                 foreignField: "_id",
-                as: "barber_id"
+                as: "barber"
             }
         },
-        { $unwind: "$barber_id" },
+        { $unwind: "$barber" },
+
+        // 🔥 Match ALL keywords (important)
         {
             $match: {
-                $or: [
-                    { shop_address: { $regex: escapedQuery, $options: "i" } },
-                    { "barber_id.name": { $regex: escapedQuery, $options: "i" } }
-                ]
+                $and: keywords.map(word => ({
+                    $or: [
+                        { shop_name: { $regex: word, $options: "i" } },
+                        { shop_address: { $regex: word, $options: "i" } }
+                    ]
+                }))
             }
         },
+
+        // ✅ Return FULL shop details
         {
             $project: {
+                _id: 1,
                 shop_name: 1,
                 shop_address: 1,
                 phone: 1,
                 opening_hours: 1,
-                services: 1,
+                closing_days: 1,
+                tiffin_time: 1,
                 today_open: 1,
-                "barber_id._id": 1,
-                "barber_id.name": 1,
-                "barber_id.email": 1,
-                "barber_id.phone": 1,
-                "barber_id.profileUrl": 1,
-                "barber_id.gender": 1
+                half_closing_day: 1,
+                services: 1,
+                slot_interval: 1,
+                profileUrl: 1,
+                created_at: 1,
+                updated_at: 1,
+
+                // Barber details
+                barber: {
+                    _id: "$barber._id",
+                    name: "$barber.name",
+                    email: "$barber.email",
+                    phone: "$barber.phone",
+                    profileUrl: "$barber.profileUrl",
+                    gender: "$barber.gender"
+                }
             }
         }
     ]);
@@ -308,7 +326,7 @@ export const searchShops = catchAsyncErrors(async (req, res, next) => {
     res.status(200).json({
         success: true,
         data: {
-            barbers: shops,
+            shops,
             total: shops.length,
             query: query.trim()
         }

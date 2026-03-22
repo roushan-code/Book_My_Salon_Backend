@@ -7,6 +7,15 @@ const ShopDetailsSchema = new mongoose.Schema({
         required: [true, "Barber ID is required"],
         unique: true,
     },
+
+    shop_name: {
+        type: String,
+        required: [true, "Shop name is required"],
+        trim: true,
+        maxLength: [100, "Shop name cannot exceed 100 characters"],
+        index: true
+    },
+
     profileUrl: {   
         public_id:  {
             type: String,
@@ -17,11 +26,13 @@ const ShopDetailsSchema = new mongoose.Schema({
             required: true, 
         }
     },
+
     shop_address: {
         type: String,
         required: [true, "Shop address is required"],
         maxLength: [200, "Address cannot exceed 200 characters"],
     },
+
     phone: {
         type: String,
         required: [true, "Phone number is required"],
@@ -32,6 +43,7 @@ const ShopDetailsSchema = new mongoose.Schema({
             message: "Invalid phone number format"
         }
     },
+
     opening_hours: {
         start: {
             type: String,
@@ -44,10 +56,12 @@ const ShopDetailsSchema = new mongoose.Schema({
             default: "20:00"
         }
     },
+
     closing_days: [{
         type: String,
         enum: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
     }],
+
     tiffin_time: {
         start: {
             type: String,
@@ -58,14 +72,17 @@ const ShopDetailsSchema = new mongoose.Schema({
             default: "14:00"
         }
     },
+
     today_open: {
         type: Boolean,
         default: true,
     },
+
     half_closing_day: {
         type: String,
         enum: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday",""],
     },
+
     services: [{
         name: {
             type: String,
@@ -74,13 +91,6 @@ const ShopDetailsSchema = new mongoose.Schema({
         duration: {
             type: Number, // in minutes
             required: [true, "Service duration is required"],
-            // min: [15, "Minimum service duration is 15 minutes"],
-            // validate: {
-            //     validator: function(v) {
-            //         return v % 15 === 0; // Duration must be multiple of 15
-            //     },
-            //     message: "Service duration must be in multiples of 15 minutes"
-            // }
         },
         price: {
             type: Number,
@@ -92,16 +102,17 @@ const ShopDetailsSchema = new mongoose.Schema({
             default: true,
         }
     }],
+
     slot_interval: {
         type: Number,
         default: 15, // 15-minute intervals
-        // enum: [15, 30], // Only 15 or 30 minute intervals allowed
     },
-    
+
     created_at: {
         type: Date,
         default: Date.now,
     },
+
     updated_at: {
         type: Date,
         default: Date.now,
@@ -113,6 +124,5 @@ ShopDetailsSchema.pre('save', function(next) {
     this.updated_at = Date.now();
     next();
 });
-
 
 export default mongoose.model("ShopDetails", ShopDetailsSchema);
