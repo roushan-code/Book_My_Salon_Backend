@@ -261,6 +261,7 @@ export const getAllBarbers = catchAsyncErrors(async (req, res, next) => {
 // Search shops by barber name or shop address
 export const searchShops = catchAsyncErrors(async (req, res, next) => {
     const { query } = req.query;
+    console.log("Search query:", query);
 
     if (!query || !query.trim()) {
         return next(new ErrorHandler("Search query is required", 400));
