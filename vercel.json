@@ -1,5 +1,4 @@
 {
-<<<<<<< HEAD
   "version": 2,
   "rewrites": [
     {
@@ -27,12 +26,3 @@
     }
   ]
 }
-=======
-    "rewrites": [
-      {
-        "source": "/(.*)",
-        "destination": "/index.html"
-      }
-    ]
-  }
->>>>>>> 9cf43d97d9c6caa50a2bcfd48ed5e1dedf963c7e
